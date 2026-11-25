@@ -47,8 +47,6 @@ sudo systemctl start dreamdns.service && journalctl -u dreamdns -n 20
 dig +short subdomain.mydomain.com
 ```
 
-Then stop and remove the old Perl daemon on that host (drop its `rc.local` line).
-
 ## Manual runs
 
 ```sh
