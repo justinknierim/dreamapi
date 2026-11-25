@@ -1,0 +1,19 @@
+[Unit]
+Description=Update DreamHost DNS record with this host's public IP
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Read by systemd as root, so the file can stay mode 600 owned by root.
+EnvironmentFile=/etc/dreamdns.env
+ExecStart=/usr/local/bin/dreamdns
+DynamicUser=yes
+StateDirectory=dreamdns
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
