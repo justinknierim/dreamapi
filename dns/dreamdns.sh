@@ -2,6 +2,7 @@
 # dreamdns - keep a DreamHost DNS record pointed at this host's public IP.
 #
 # Runs once and exits; schedule it with the bundled systemd timer (or cron).
+# Each run handles one record; run one instance per record (dreamdns@.timer).
 # Uses the DreamHost API v1 (https://developers.dreamhost.com):
 #   GET  /v1/dns/{zone}?name=&type=   find the current record
 #   PUT  /v1/dns/{zone}               change its IP (no delete/re-add gap)
@@ -18,7 +19,7 @@
 # the next run: a task that ended in anything but success clears the cache,
 # so that same run re-reads the record and writes it again.
 #
-# Config (environment, or KEY=value lines in the --env file):
+# Config (environment, or KEY=value lines in --env files):
 #   DH_API_KEY    API key with dns:read + dns:write          (required)
 #   DNS_ZONE      zone the record lives in, e.g. example.com  (required)
 #   DNS_NAME      record name relative to the zone, e.g. home (required)
@@ -34,9 +35,9 @@ readonly IPV6_URLS=("https://api6.ipify.org" "https://ipv6.icanhazip.com")
 
 usage() {
 	cat >&2 <<-EOF
-	Usage: $0 [--env FILE] [--ip ADDR] [--force]
-	  --env FILE  load KEY=value config from FILE (default: /etc/dreamdns.env if
-	              DH_API_KEY is not already set)
+	Usage: $0 [--env FILE]... [--ip ADDR] [--force]
+	  --env FILE  load KEY=value config from FILE; repeatable, later files win
+	              (e.g. --env /etc/dreamdns/common.env --env /etc/dreamdns/home.env)
 	  --ip ADDR   publish ADDR instead of detecting the public IP (one type only)
 	  --force     ignore the local IP cache and always check the API
 	EOF
@@ -46,12 +47,12 @@ usage() {
 log() { printf '%s\n' "$*" >&2; }
 die() { log "error: $*"; exit 1; }
 
-env_file=""
+env_files=()
 ip_override=""
 force=0
 while (($#)); do
 	case "$1" in
-		--env) env_file="${2:?--env needs a file}"; shift 2 ;;
+		--env) env_files+=("${2:?--env needs a file}"); shift 2 ;;
 		--ip) ip_override="${2:?--ip needs an address}"; shift 2 ;;
 		--force) force=1; shift ;;
 		-h | --help) usage ;;
@@ -59,16 +60,13 @@ while (($#)); do
 	esac
 done
 
-if [[ -z "$env_file" && -z "${DH_API_KEY:-}" && -r /etc/dreamdns.env ]]; then
-	env_file=/etc/dreamdns.env
-fi
-if [[ -n "$env_file" ]]; then
+for env_file in "${env_files[@]}"; do
 	[[ -r "$env_file" ]] || die "cannot read $env_file"
 	set -a
 	# shellcheck disable=SC1090
 	source "$env_file"
 	set +a
-fi
+done
 
 : "${DH_API_KEY:?DH_API_KEY is not set}"
 : "${DNS_ZONE:?DNS_ZONE is not set}"

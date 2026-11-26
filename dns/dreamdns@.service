@@ -1,0 +1,27 @@
+[Unit]
+Description=Update DreamHost DNS record %i with this host's public IP
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# One instance per record: dreamdns@home.example.com reads
+# /etc/dreamdns/home.example.com.env. Settings shared by all instances
+# (typically DH_API_KEY) may go in /etc/dreamdns/common.env; the instance
+# file is read last, so it wins. Both are read by systemd as root, so they
+# can stay mode 600 owned by root.
+EnvironmentFile=-/etc/dreamdns/common.env
+EnvironmentFile=/etc/dreamdns/%i.env
+ExecStart=/usr/local/bin/dreamdns
+DynamicUser=yes
+# Per instance: each instance runs as its own dynamic user, and systemd
+# chowns the state directory on start, so a shared one would be yanked
+# from under an instance running at the same time.
+StateDirectory=dreamdns/%i
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
